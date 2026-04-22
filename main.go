@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"chatonetoone/configs/databases"
 	"fmt"
 	"io"
 	"log"
@@ -9,8 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/gorilla/mux"
+	// "github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 const WELCOME_MESSAGE = "<h1>welcome to the chat application<h1>"
@@ -18,19 +20,35 @@ const WELCOME_MESSAGE = "<h1>welcome to the chat application<h1>"
 var con *websocket.Conn
 var err error
 
+var MysqlDB *gorm.DB
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize: 1024,
 	WriteBufferSize: 1024,
 }
 
 func main(){
-	r := mux.NewRouter()
-	r.HandleFunc("/",greetingMessage)
-	r.HandleFunc("/ws",upgradeToWebsocket)
-	log.Print("Listening on port 3000 ...")
-	if err := http.ListenAndServe(":3000",r); err != nil{
+	// r := mux.NewRouter()
+	// r.HandleFunc("/",greetingMessage)
+	// r.HandleFunc("/ws",upgradeToWebsocket)
+	// log.Print("Listening on port 3000 ...")
+	// if err := http.ListenAndServe(":3000",r); err != nil{
+	// 	panic(err)
+	// }
+
+	configloader := databases.MysqlConfigLoader{Environment: databases.Development}
+	mysqlconfig, err := configloader.LoadMysqlConfiguration()
+
+	if(err != nil){
 		panic(err)
 	}
+	
+	fmt.Println(mysqlconfig)
+
+	MysqlDB = databases.IntializeGoOrm(*mysqlconfig)
+	// fmt.Printf("%v",obj)
+	fmt.Printf("%T\n",MysqlDB)
+	fmt.Println(MysqlDB.Config)
 }
 
 func greetingMessage(w http.ResponseWriter, req *http.Request){
