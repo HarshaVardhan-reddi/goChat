@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/goccy/go-yaml"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type DatabaseConfiguration struct {

@@ -1,0 +1,17 @@
+# Security
+configs/databases/database.yml
+
+# Binaries
+dbmigrator
+*.exe
+*.dylib
+*.so
+
+# Local Tracker
+db/migrator/migrations/.version
+
+# OS
+.DS_Store
+
+# Go
+vendor/

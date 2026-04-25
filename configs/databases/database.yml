@@ -2,8 +2,8 @@ development:
   driver: "mysql"
   host: "localhost"
   port: 3306
-  username: "root"
-  password:
+  username: "chatuser"
+  password: "12345678"
   database: "chats"
   variables:
 
@@ -20,3 +20,5 @@ production:
   password:
   database:
   variables:
+
+# mysql -u chatuser -p chats

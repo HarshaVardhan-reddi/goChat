@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func performMigration(currentenv map[string]any, direction string) {
@@ -18,7 +19,10 @@ func performMigration(currentenv map[string]any, direction string) {
 	}
 	defer db.Close()
 
-	driver, _ := mysql.WithInstance(db, &mysql.Config{})
+	driver, errinstance := mysql.WithInstance(db, &mysql.Config{})
+	if(errinstance != nil){
+		panic(errinstance)
+	}
 	m, err := migrate.NewWithDatabaseInstance("file://"+migrationsDir, "mysql", driver)
 	if err != nil {
 		panic(err)
