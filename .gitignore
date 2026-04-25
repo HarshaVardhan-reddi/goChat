@@ -1,5 +1,6 @@
 # Security
 configs/databases/database.yml
+.env
 
 # Binaries
 dbmigrator

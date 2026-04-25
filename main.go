@@ -13,6 +13,7 @@ import (
 	// "github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
+	"github.com/joho/godotenv"
 )
 
 const WELCOME_MESSAGE = "<h1>welcome to the chat application<h1>"
@@ -28,6 +29,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func main(){
+	godotenv.Load()
 	// r := mux.NewRouter()
 	// r.HandleFunc("/",greetingMessage)
 	// r.HandleFunc("/ws",upgradeToWebsocket)

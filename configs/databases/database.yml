@@ -3,7 +3,7 @@ development:
   host: "localhost"
   port: 3306
   username: "chatuser"
-  password: ENV["DB_PASS"]
+  password: ${CHATUSER_DBPASS}
   database: "chats"
   variables:
 

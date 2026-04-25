@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goccy/go-yaml"
+	"github.com/joho/godotenv"
 )
 
 type DatabaseConfiguration struct {
@@ -25,6 +26,7 @@ const migrationsDir = "db/migrator/migrations"
 const versionFile = migrationsDir + "/.version"
 
 func main() {
+	godotenv.Load()
 	dbconfig := readDatabaseConfiguration()
 	flags := takeInputFlags()
 	
@@ -71,11 +73,13 @@ func validateFlags(flags map[string]any) {
 
 func readDatabaseConfiguration() *DatabaseConfiguration {
 	rawDbConfig, err := os.ReadFile("configs/databases/database.yml")
+	stringifiedDbConfig := (string)(rawDbConfig)
+	sanatizedDbConfig := os.ExpandEnv(stringifiedDbConfig)
 	dbconfig := DatabaseConfiguration{}
 	if err != nil {
 		panic(err)
 	}
-	if errun := yaml.Unmarshal(rawDbConfig, &dbconfig); errun != nil {
+	if errun := yaml.Unmarshal([]byte(sanatizedDbConfig), &dbconfig); errun != nil {
 		panic(errun)
 	}
 	return &dbconfig
