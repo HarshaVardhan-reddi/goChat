@@ -29,3 +29,7 @@ func(ur *SqlUserRepository) FindUserByEmail(email string) (*models.User, error){
 	}
 	return &user, nil
 }
+
+func(ur *SqlUserRepository) CreateUser(user *models.User) error{
+	return ur.db.Create(user).Error
+}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
-
-	"github.com/joho/godotenv"
+	
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -25,12 +25,7 @@ func InitializeMongoDbClient() (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	uriData, err := godotenv.Read()
-	if err != nil {
-		return nil, fmt.Errorf("read .env: %w", err)
-	}
-
-	uri := uriData["MONGODB"]
+	uri := os.Getenv("MONGODB")
 	if uri == "" {
 		return nil, errors.New("MONGODB not set in .env")
 	}
