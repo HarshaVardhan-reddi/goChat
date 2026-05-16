@@ -3,8 +3,8 @@ package users
 import (
 	"chatonetoone/internals/auth"
 	"chatonetoone/internals/models"
-	"chatonetoone/internals/repositories/users"
-	
+	user_repos "chatonetoone/internals/repositories/users_repos"
+
 	"strconv"
 )
 
@@ -18,11 +18,11 @@ type LoginReponse struct{
 
 type LoginService struct{
 	credentialValidator auth.CredentialValidator
-	userRepository users.UserRepository
+	userRepository user_repos.UserRepository
 	jwtHandler *auth.JwtHandler
 }
 
-func NewLoginService(validator auth.CredentialValidator, repo users.UserRepository) *LoginService {
+func NewLoginService(validator auth.CredentialValidator, repo user_repos.UserRepository) *LoginService {
 	return &LoginService{
 		credentialValidator: validator, 
 		userRepository: repo,

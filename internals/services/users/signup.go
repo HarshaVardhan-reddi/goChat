@@ -2,11 +2,12 @@ package users
 
 import (
 	"chatonetoone/internals/models"
-	"chatonetoone/internals/repositories/users"
+	user_repos "chatonetoone/internals/repositories/users_repos"
+	// "chatonetoone/internals/repositories/users"
 )
 
 type SignupService struct{
-	repository users.UserRepository
+	repository user_repos.UserRepository
 }
 
 func(ss *SignupService) Execute(details []byte) (*models.User, error) {

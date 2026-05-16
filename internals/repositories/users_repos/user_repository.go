@@ -1,4 +1,4 @@
-package users
+package user_repos
 
 import "chatonetoone/internals/models"
 
