@@ -10,6 +10,10 @@ type SignupService struct{
 	repository user_repos.UserRepository
 }
 
+func NewSingupService(repo user_repos.UserRepository) *SignupService {
+	return &SignupService{repository: repo}
+}
+
 func(ss *SignupService) Execute(details []byte) (*models.User, error) {
 	user, err := models.NewUser(details)
 	if err != nil{

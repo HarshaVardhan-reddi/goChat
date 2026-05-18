@@ -14,6 +14,7 @@ type User struct{
 	PasswordHash string `json:"-"`
 	Email string `json:"email"`
 	Password string `json:"password" gorm:"-"`
+	gorm.DeletedAt `gorm:"-"`
 }
 
 func NewUser(details json.RawMessage) (*User, error) {

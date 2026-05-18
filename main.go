@@ -2,7 +2,10 @@ package main
 
 import (
 	"bufio"
+	"chatonetoone/configs"
 	"chatonetoone/configs/databases"
+	"chatonetoone/internals/controllers/v1/users"
+	user_repos "chatonetoone/internals/repositories/users_repos"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +13,6 @@ import (
 	"os"
 	"time"
 
-	// "github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 	"github.com/joho/godotenv"
@@ -30,13 +32,6 @@ var upgrader = websocket.Upgrader{
 
 func main(){
 	godotenv.Load()
-	// r := mux.NewRouter()
-	// r.HandleFunc("/",greetingMessage)
-	// r.HandleFunc("/ws",upgradeToWebsocket)
-	// log.Print("Listening on port 3000 ...")
-	// if err := http.ListenAndServe(":3000",r); err != nil{
-	// 	panic(err)
-	// }
 
 	configloader := databases.MysqlConfigLoader{Environment: databases.Development}
 	mysqlconfig, err := configloader.LoadMysqlConfiguration()
@@ -51,6 +46,24 @@ func main(){
 	// fmt.Printf("%v",obj)
 	fmt.Printf("%T\n",MysqlDB)
 	fmt.Println(MysqlDB.Config)
+
+	// Dependency Injection Setup
+	userRepo, errInRepo := user_repos.NewSqlUserRepository(MysqlDB)
+	if errInRepo != nil{
+		log.Fatal(errInRepo)
+	}
+	userCtrl := users.NewUsersController(MysqlDB, userRepo)
+	
+	router := configs.IntializeRoutes(userCtrl)
+
+	// You can add your greeting and websocket routes to the main router here
+	// router.HandleFunc("/", greetingMessage)
+	// router.HandleFunc("/ws", upgradeToWebsocket)
+
+	log.Print("Listening on port 3000 ...")
+	if err := http.ListenAndServe(":3000", router); err != nil{
+		panic(err)
+	}
 }
 
 func greetingMessage(w http.ResponseWriter, req *http.Request){
