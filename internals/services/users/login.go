@@ -36,12 +36,12 @@ func(ls *LoginService) Execute(email string, password string) (LoginReponse, err
 		return LoginReponse{},err
 	}
 	// validate password
-	if err := ls.credentialValidator.Validate(password, user.PasswordHash); err != nil{
+	if err := ls.credentialValidator.Validate(password, user.PasswordDigest); err != nil{
 		return LoginReponse{}, err
 	}
 
 	// generate jwt
-	token, err := ls.jwtHandler.Encode(map[string]string{"email":user.Email, "id": strconv.Itoa(int(user.ID)), "name":user.Name}, DEFAULT_EXPIRY_FOR_LOGIN)
+	token, err := ls.jwtHandler.Encode(map[string]string{"email":user.Email, "id": strconv.Itoa(int(user.ID)), "name":user.FirstName}, DEFAULT_EXPIRY_FOR_LOGIN)
 
 
 	return LoginReponse{User: *user, AuthToken: token}, nil

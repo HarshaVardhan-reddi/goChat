@@ -32,30 +32,40 @@ func (uc *UsersController) Login(w http.ResponseWriter, r *http.Request) {
 		log.Println("request timeout before response")
 		return
 	default:
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			log.Println("error occurred while reading body", err)
+			helpers.RespondWithError(w, http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+
+		var logindata map[string]any
+		if err := json.Unmarshal(body, &logindata); err != nil {
+			log.Println("error unmarshaling login data:", err)
+			helpers.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+			return
+		}
+
+		// login service
+		email, emailOk := logindata["email"].(string)
+		password, passOk := logindata["password"].(string)
+
+		if !emailOk || !passOk {
+			helpers.RespondWithError(w, http.StatusBadRequest, "Missing email or password")
+			return
+		}
+
+		loginService := users.NewLoginService(&auth.PasswordValidator{}, uc.repo)
+		response, errInLogin := loginService.Execute(email, password)
+		if errInLogin != nil {
+			helpers.RespondWithError(w, http.StatusUnauthorized, errInLogin.Error())
+			return
+		}
+
+		// Successful login response
+		helpers.RespondWithJSON(w, http.StatusOK, map[string]any{"message": "Login successful", "user": response})
 	}
-
-	body, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		log.Println("error occurred while reading body", err)
-		helpers.RespondWithError(w, http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-
-	var logindata map[string]any
-	if err := json.Unmarshal(body, &logindata); err != nil {
-		log.Println("error unmarshaling login data:", err)
-		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
-		return
-	}
-
-	// login service
-	// Note: You might want to assign the result of these to variables and use them
-	user_repos.NewSqlUserRepository(uc.DB)
-	users.NewLoginService(&auth.PasswordValidator{}, uc.repo)
-
-	// Placeholder for successful login response
-	helpers.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "login logic pending"})
 }
 
 func (uc *UsersController) Singup(w http.ResponseWriter, r *http.Request) {

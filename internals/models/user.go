@@ -4,17 +4,19 @@ import (
 	"chatonetoone/internals/helpers"
 	"encoding/json"
 	"errors"
-
-	"gorm.io/gorm"
+	"time"
 )
 
 type User struct{
-	gorm.Model
-	Name string `json:"name"`
-	PasswordHash string `json:"-"`
+	ID int64 `gorm:"primaryKey"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	PasswordDigest string `json:"-"`
 	Email string `json:"email"`
 	Password string `json:"password" gorm:"-"`
-	gorm.DeletedAt `gorm:"-"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Nickname string `json:"nickname"`
 }
 
 func NewUser(details json.RawMessage) (*User, error) {
@@ -32,20 +34,20 @@ func NewUser(details json.RawMessage) (*User, error) {
 		return nil, err
 	}
 
-	user.PasswordHash = hash
+	user.PasswordDigest = hash
 	user.Password = ""
 	return &user, nil
 }
 
-func (u User) validateInput() error{
+func (u User) validateInput() error {
 	if u.Email == ""{
 		return errors.New("email filed is missing")
 	}
 	if u.Password == ""{
 		return  errors.New("password field is missing")
 	}
-	if u.Name == ""{
-		return errors.New("name field is missing")
-	}
+	// if u.FirstName == ""{
+	// 	return errors.New("name field is missing")
+	// }
 	return nil
 }

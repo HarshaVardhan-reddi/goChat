@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -23,13 +24,17 @@ func pickFirstOne(secretKeys ...string) []byte {
 	return []byte{}
 }
 
-func NewJwtHandler(secretkey string) *JwtHandler{
-	maxduration, err := strconv.Atoi(os.Getenv("DEFAULT_JWT_EXPIRY_TIME"))
-	if err != nil{
-		return nil
+func NewJwtHandler(secretkey string) *JwtHandler {
+	maxdurationStr := os.Getenv("DEFAULT_JWT_EXPIRY_TIME")
+	maxduration, err := strconv.Atoi(maxdurationStr)
+	if err != nil {
+		log.Println("Error in getting the default expiry for jwt") // Default to 24 hours if missing/invalid
 	}
+
+	secret := pickFirstOne(secretkey, os.Getenv("JWT_SECRET"), "default_secret_key_change_me")
+
 	return &JwtHandler{
-		SecretKey: pickFirstOne(secretkey, os.Getenv("JWT")),
+		SecretKey:          secret,
 		DefaultMaxDuration: maxduration,
 	}
 }
