@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+var ChatHub *Hub = &Hub{}
+
 type Hub struct{
 	connections sync.Map // this ds wont suite for real world application as it is ready heavy not for heavy writes
 }
