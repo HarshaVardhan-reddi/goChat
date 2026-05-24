@@ -24,6 +24,7 @@ func setupV1(v1router *mux.Router, mysqldb *gorm.DB) {
 	userCtrl := users.NewUsersController(mysqldb, repo)
 	users.RegisterRouters(userCtrl, userRouter)
 
+	wsrouter := v1router.PathPrefix("/ws").Subrouter()
 	chatsCtrl, _ := chats.NewController()
-	chats.RegisterRouters(chatsCtrl, v1router)
+	chats.RegisterRouters(chatsCtrl, wsrouter)
 }
