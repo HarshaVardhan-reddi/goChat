@@ -13,12 +13,13 @@ type Identifier string
 type WsConnection struct{
 	ID Identifier
 	Conn *websocket.Conn
+	Broker chan string
 }
 
 var wsUpgrader *websocket.Upgrader = &websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024, CheckOrigin: originCheck}
 
 func NewConnection(id Identifier, w http.ResponseWriter, r *http.Request) (*WsConnection, error) {
-	wsconn := WsConnection{ID: id} 
+	wsconn := WsConnection{ID: id, Broker: make(chan string, 1024)}
 	conn, err := wsUpgrader.Upgrade(w,r,nil)
 	if err != nil{
 		return nil,errors.New("upgrade request failed")

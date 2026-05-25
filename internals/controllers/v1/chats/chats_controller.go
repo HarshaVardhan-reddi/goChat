@@ -2,6 +2,7 @@ package chats
 
 import (
 	"chatonetoone/internals/helpers"
+	"chatonetoone/internals/services/chats"
 	"chatonetoone/internals/ws"
 	"log"
 	"net/http"
@@ -22,5 +23,5 @@ func (cc *ChatsController) InitiateChat(w http.ResponseWriter, r *http.Request){
 		log.Println("Err in webscoket upgrader", err)
 		helpers.RespondWithError(w,http.StatusInternalServerError, "failed to upgrade websocket")
 	}
-	ws.ChatHub.PutConnection(conn)
+	chats.NewMessagingService(conn, ws.ChatHub)
 }
