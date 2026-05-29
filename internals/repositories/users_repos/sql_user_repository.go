@@ -33,3 +33,9 @@ func(ur *SqlUserRepository) FindUserByEmail(email string) (*models.User, error){
 func(ur *SqlUserRepository) CreateUser(user *models.User) error{
 	return ur.db.Create(user).Error
 }
+
+func(ur *SqlUserRepository) FindUserByID(id int) (*models.User, error){
+	user := &models.User{}
+	ur.db.Where("id = ?",id).First(user)
+	return user, nil
+}

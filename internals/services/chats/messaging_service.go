@@ -17,7 +17,7 @@ type MessagingService struct {
 	hub        *ws.Hub
 }
 
-func NewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
+func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
 	msgservice := MessagingService{Connection: con, hub: hub}
 
 	go msgservice.MessageReaderWithContext()
@@ -27,6 +27,7 @@ func NewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
 func (ms *MessagingService) MessageReaderWithContext() {
 	defer func() {
 		ms.Connection.Conn.Close()
+		ms.hub.DeleteConnection(ms.Connection.ID)
 		close(ms.Connection.Broker)
 	}()
 	for {
@@ -41,7 +42,7 @@ func (ms *MessagingService) MessageReaderWithContext() {
 		TargetCon, errInFetch := ms.hub.FetchConnection(ws.Identifier(id))
 		msgInTxt := chatmsg.Message.Text
 		if errInFetch == nil {
-			log.Println("error occured while fetching the target connection", errInFetch)
+			
 			TargetCon.Broker <- msgInTxt
 		}else{
 			log.Println("sending push message here..")
@@ -52,6 +53,7 @@ func (ms *MessagingService) MessageReaderWithContext() {
 
 func (ms *MessagingService) MessageWriterWithContext() {
 	defer func() {
+		ms.hub.DeleteConnection(ms.Connection.ID)
 		ms.Connection.Conn.Close()
 	}()
 	for {

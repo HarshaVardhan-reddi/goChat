@@ -2,10 +2,14 @@ package chats
 
 import (
 	"chatonetoone/internals/helpers"
+	"chatonetoone/internals/models"
+	user_repos "chatonetoone/internals/repositories/users_repos"
 	"chatonetoone/internals/services/chats"
+	"chatonetoone/internals/services/users"
 	"chatonetoone/internals/ws"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type ChatsController struct{
@@ -17,11 +21,33 @@ func NewController() (*ChatsController, error){
 }
 
 func (cc *ChatsController) InitiateChat(w http.ResponseWriter, r *http.Request){
-	id := ws.Identifier("1")
-	conn, err := ws.NewConnection(id, w, r)
+
+	ctx, errInSettingContext := users.SetCurrentUserContext(r,&user_repos.SqlUserRepository{})
+	if(errInSettingContext != nil){
+		helpers.RespondWithError(w,http.StatusInternalServerError,errInSettingContext.Error())
+		return
+	}
+
+	user, ok := (*ctx).Value("currentuser").(models.User)
+	if !ok {
+		helpers.RespondWithError(w, http.StatusInternalServerError, "user not found in context")
+		return
+	}
+
+	conn, err := ws.NewConnection( ws.Identifier( strconv.Itoa(int(user.ID))), w, r)
+
 	if err != nil{
 		log.Println("Err in webscoket upgrader", err)
 		helpers.RespondWithError(w,http.StatusInternalServerError, "failed to upgrade websocket")
+		return
 	}
-	chats.NewMessagingService(conn, ws.ChatHub)
+
+	err = ws.ChatHub.PutConnection(conn)
+	if err != nil {
+		log.Println("Err in putting connection to hub", err)
+		helpers.RespondWithError(w, http.StatusInternalServerError, "failed to register connection")
+		return
+	}
+
+	chats.StartNewMessagingService(conn, ws.ChatHub)
 }

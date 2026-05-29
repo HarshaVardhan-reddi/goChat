@@ -36,3 +36,8 @@ func (h *Hub) FetchConnection(id Identifier) (*WsConnection,error) {
 	}
 	return conn, nil
 }
+
+func (h *Hub) DeleteConnection(id Identifier) error {
+	h.connections.Delete(id)
+	return nil
+}
