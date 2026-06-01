@@ -10,7 +10,10 @@ import (
 )
 
 func DecodeAuthToken(r *http.Request) (int,error) {
-	bt := r.Header.Get("authorization") // baerer token
+	bt := r.Header.Get("Authorization") // baerer token
+	if bt == "" {
+		bt = r.URL.Query().Get("access_token")
+	}
 	if(bt == ""){
 		return -1, errors.New("auth token is missing in the request")		
 	}

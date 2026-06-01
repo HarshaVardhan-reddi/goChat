@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>goChat Test Interface</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background: #f0f2f5; }
+        .header { background: #075e54; color: white; padding: 1rem; text-align: center; }
+        .container { display: flex; flex: 1; gap: 20px; padding: 20px; overflow: hidden; }
+        .client-box { flex: 1; background: white; display: flex; flex-direction: column; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #ddd; }
+        .client-header { padding: 10px; border-bottom: 1px solid #eee; background: #f8f9fa; border-radius: 8px 8px 0 0; }
+        .auth-form { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .auth-form input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .chat-area { flex: 1; padding: 15px; overflow-y: auto; background: #e5ddd5; display: flex; flex-direction: column; gap: 8px; }
+        .message { padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
+        .message.sent { align-self: flex-end; background: #dcf8c6; }
+        .message.received { align-self: flex-start; background: white; }
+        .input-area { padding: 10px; display: flex; flex-direction: column; gap: 5px; border-top: 1px solid #eee; }
+        .input-row { display: flex; gap: 10px; width: 100%; }
+        .input-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .peer-info { font-size: 0.85em; color: #128c7e; font-weight: bold; }
+        .status { font-size: 0.8em; color: #666; margin-top: 5px; }
+        button { padding: 8px 15px; cursor: pointer; background: #128c7e; color: white; border: none; border-radius: 4px; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>goChat Multi-Client Tester</h1>
+    </div>
+
+    <div class="container">
+        <!-- Client 1 -->
+        <div class="client-box" id="client1">
+            <div class="client-header">
+                <strong>Client 1</strong>
+                <div class="status" id="status1">Disconnected</div>
+            </div>
+            
+            <div class="auth-form" id="auth1">
+                <input type="text" id="email1" placeholder="Email">
+                <input type="password" id="pass1" placeholder="Password" value="password123">
+                <button onclick="authenticate(1)">Signup & Connect</button>
+            </div>
+
+            <div class="chat-area hidden" id="chat-area1"></div>
+            
+            <div class="input-area hidden" id="inputs1">
+                <div class="peer-info" id="peer-info1">Waiting for Peer...</div>
+                <div class="input-row">
+                    <input type="text" id="msg1" placeholder="Type a message...">
+                    <button id="sendBtn1" onclick="sendMessage(1)" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client 2 -->
+        <div class="client-box" id="client2">
+            <div class="client-header">
+                <strong>Client 2</strong>
+                <div class="status" id="status2">Disconnected</div>
+            </div>
+            
+            <div class="auth-form" id="auth2">
+                <input type="text" id="email2" placeholder="Email">
+                <input type="password" id="pass2" placeholder="Password" value="password123">
+                <button onclick="authenticate(2)">Signup & Connect</button>
+            </div>
+
+            <div class="chat-area hidden" id="chat-area2"></div>
+            
+            <div class="input-area hidden" id="inputs2">
+                <div class="peer-info" id="peer-info2">Waiting for Peer...</div>
+                <div class="input-row">
+                    <input type="text" id="msg2" placeholder="Type a message..." onkeyup="if(event.key === 'Enter') sendMessage(2)">
+                    <button id="sendBtn2" onclick="sendMessage(2)" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Randomize default emails on load
+        document.getElementById('email1').value = `user1_${Math.floor(Math.random() * 10000)}@test.com`;
+        document.getElementById('email2').value = `user2_${Math.floor(Math.random() * 10000)}@test.com`;
+
+        const API_URL = 'http://localhost:3000/api/v1';
+        const WS_URL = 'ws://localhost:3000/api/v1/ws/startchat';
+        
+        const clients = {
+            1: { ws: null, user: null, token: null },
+            2: { ws: null, user: null, token: null }
+        };
+
+        async function authenticate(id) {   
+            const email = document.getElementById(`email${id}`).value;
+            const password = document.getElementById(`pass${id}`).value;
+            const statusEl = document.getElementById(`status${id}`);
+            
+            statusEl.innerText = "Authenticating...";
+
+            try {
+                // Try Signup
+                await fetch(`${API_URL}/users/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email, password, 
+                        first_name: `User${id}`, 
+                        nickname: `nick${id}_${Date.now()}` 
+                    })
+                });
+
+                // Login
+                const loginRes = await fetch(`${API_URL}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await loginRes.json();
+                if (!loginRes.ok) throw new Error(data.error || "Login failed");
+
+                const userData = data.user;
+                clients[id].user = userData.user || userData;
+                clients[id].token = userData.auth_token || userData.AuthToken;
+
+                statusEl.innerText = `Logged in as: ${clients[id].user.first_name} (ID: ${clients[id].user.ID})`;
+                connectWebSocket(id);
+                updatePeerInfo();
+
+            } catch (err) {
+                statusEl.innerText = "Error: " + err.message;
+            }
+        }
+
+        function updatePeerInfo() {
+            const c1 = clients[1].user;
+            const c2 = clients[2].user;
+
+            if (c1 && c2) {
+                document.getElementById('peer-info1').innerText = `Chatting with: ${c2.first_name} (ID: ${c2.ID})`;
+                document.getElementById('sendBtn1').disabled = false;
+
+                document.getElementById('peer-info2').innerText = `Chatting with: ${c1.first_name} (ID: ${c1.ID})`;
+                document.getElementById('sendBtn2').disabled = false;
+            }
+        }
+
+        function connectWebSocket(id) {
+            const client = clients[id];
+            const statusEl = document.getElementById(`status${id}`);
+            
+            client.ws = new WebSocket(`${WS_URL}?access_token=${client.token}`); 
+
+            client.ws.onopen = () => {
+                statusEl.innerText += " | WebSocket Connected";
+                document.getElementById(`auth${id}`).classList.add('hidden');
+                document.getElementById(`chat-area${id}`).classList.remove('hidden');
+                document.getElementById(`inputs${id}`).classList.remove('hidden');
+            };
+
+            client.ws.onmessage = (event) => {
+                appendMessage(id, event.data, 'received');
+            };
+
+            client.ws.onclose = () => {
+                statusEl.innerText = "WebSocket Closed";
+                document.getElementById(`sendBtn${id}`).disabled = true;
+            };
+        }
+
+        function sendMessage(id) {
+            const client = clients[id];
+            const otherId = id === 1 ? 2 : 1;
+            const targetUser = clients[otherId].user;
+            const text = document.getElementById(`msg${id}`).value;
+            
+            if (!text || !targetUser) return;
+
+            const chatMsg = {
+                sessionId: "browser-test",
+                timestamp: Math.floor(Date.now() / 1000),
+                from: { id: client.user.ID },
+                to: { id: parseInt(targetUser.ID) },
+                message: { text: text, attachments: [] },
+                token: ""
+            };
+
+            client.ws.send(JSON.stringify(chatMsg));
+            appendMessage(id, text, 'sent');
+            document.getElementById(`msg${id}`).value = '';
+        }
+
+        function appendMessage(id, text, type) {
+            const chatArea = document.getElementById(`chat-area${id}`);
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}`;
+            msgDiv.innerText = text;
+            chatArea.appendChild(msgDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+    </script>
+</body>
+</html>

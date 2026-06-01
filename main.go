@@ -32,10 +32,10 @@ func main(){
 	fmt.Printf("%T\n",MysqlDB)
 	fmt.Println(MysqlDB.Config)
 	
-	router := configs.IntializeRoutes(MysqlDB)
+	handler := configs.IntializeRoutes(MysqlDB)
 
 	log.Print("Listening on port 3000 ...")
-	if err := http.ListenAndServe(":3000", router); err != nil{
+	if err := http.ListenAndServe(":3000", handler); err != nil{
 		panic(err)
 	}
 }

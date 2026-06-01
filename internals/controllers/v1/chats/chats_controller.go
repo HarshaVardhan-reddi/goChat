@@ -10,25 +10,27 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"gorm.io/gorm"
 )
 
 type ChatsController struct{
-
+	db *gorm.DB
 }
 
-func NewController() (*ChatsController, error){
-	return &ChatsController{}, nil
+func NewController(db *gorm.DB) (*ChatsController, error){
+	return &ChatsController{db: db}, nil
 }
 
 func (cc *ChatsController) InitiateChat(w http.ResponseWriter, r *http.Request){
-
-	ctx, errInSettingContext := users.SetCurrentUserContext(r,&user_repos.SqlUserRepository{})
+	repo, _ := user_repos.NewSqlUserRepository(cc.db)
+	ctx, errInSettingContext := users.SetCurrentUserContext(r, repo)
 	if(errInSettingContext != nil){
 		helpers.RespondWithError(w,http.StatusInternalServerError,errInSettingContext.Error())
 		return
 	}
 
-	user, ok := (*ctx).Value("currentuser").(models.User)
+	user, ok := (*ctx).Value("currentuser").(*models.User)
 	if !ok {
 		helpers.RespondWithError(w, http.StatusInternalServerError, "user not found in context")
 		return

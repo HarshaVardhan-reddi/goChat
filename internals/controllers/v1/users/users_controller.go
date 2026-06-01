@@ -77,8 +77,8 @@ func (uc *UsersController) Singup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	singupservice := users.NewSingupService(uc.repo)
-	user, err := singupservice.Execute(rawBody)
+	singupservice := users.NewSingupService(uc.repo, *auth.NewJwtHandler(""))
+	sd, err := singupservice.Execute(rawBody)
 	if err != nil {
 		log.Println("error occurred while creating the user:", err)
 		helpers.RespondWithError(w, http.StatusPreconditionFailed, err.Error())
@@ -87,6 +87,7 @@ func (uc *UsersController) Singup(w http.ResponseWriter, r *http.Request) {
 
 	helpers.RespondWithJSON(w, http.StatusCreated, map[string]any{
 		"message": "user created successfully",
-		"user":    user,
+		"user": sd,
+		"auth_token": sd,
 	})
 }

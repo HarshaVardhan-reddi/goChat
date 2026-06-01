@@ -47,7 +47,7 @@ type UserClaims struct {
 }
 
 func (jt *JwtHandler) Encode(details map[string]string, durationInSeconds int) (string, error) {
-	if durationInSeconds <= 0 && durationInSeconds >= jt.DefaultMaxDuration {
+	if durationInSeconds <= 0 || durationInSeconds > jt.DefaultMaxDuration {
 		return "", errors.New("duration is invalid")
 	}
 

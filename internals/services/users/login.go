@@ -12,8 +12,8 @@ import (
 const DEFAULT_EXPIRY_FOR_LOGIN = 259200
 
 type LoginReponse struct{
-	models.User
-	AuthToken string
+	models.User `json:"user"`
+	AuthToken string `json:"auth_token"`
 }
 
 type LoginService struct{
@@ -42,7 +42,9 @@ func(ls *LoginService) Execute(email string, password string) (LoginReponse, err
 
 	// generate jwt
 	token, err := ls.jwtHandler.Encode(map[string]string{"email":user.Email, "id": strconv.Itoa(int(user.ID)), "name":user.FirstName}, DEFAULT_EXPIRY_FOR_LOGIN)
-
+	if(err != nil){
+		return LoginReponse{}, err
+	}
 
 	return LoginReponse{User: *user, AuthToken: token}, nil
 }
