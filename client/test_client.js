@@ -5,6 +5,18 @@ const readline = require('readline');
 const API_BASE_URL = 'http://localhost:3000/api/v1';
 const WS_BASE_URL = 'ws://localhost:3000/api/v1/ws';
 
+// Event Constants matching the Go backend
+const EventType = {
+    MESSAGE: 1,
+    SUBSCRIBE: 2,
+    UNSUBSCRIBE: 3
+};
+
+const EventSource = {
+    SERVER: 1,
+    CLIENT: 2
+};
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -73,8 +85,20 @@ async function main() {
     });
 
     ws.on('message', (data) => {
-        // The server sends back raw text for the message content based on messaging_service.go
-        console.log(`\n[Incoming Message]: ${data.toString()}`);
+        try {
+            const event = JSON.parse(data.toString());
+            
+            // Handle different event types
+            if (event.event_type === EventType.MESSAGE) {
+                // In our current Go code, the payload is the ChatMessage
+                const chatMsg = event.details.payload;
+                console.log(`\n[Incoming Message from ${chatMsg.from.id}]: ${chatMsg.message.text}`);
+            } else {
+                console.log(`\n[Event Received]: Type ${event.event_type}`, event.details);
+            }
+        } catch (err) {
+            console.log(`\n[Raw Message]: ${data.toString()}`);
+        }
     });
 
     ws.on('error', (err) => {
@@ -109,7 +133,17 @@ async function startMessaging(ws, currentUser) {
             token: ""
         };
 
-        ws.send(JSON.stringify(chatMsg));
+        const wsEvent = {
+            event_type: EventType.MESSAGE,
+            src: EventSource.CLIENT,
+            timestamp: new Date().toISOString(),
+            details: {
+                from: { id: currentUser.ID },
+                payload: chatMsg
+            }
+        };
+
+        ws.send(JSON.stringify(wsEvent));
         console.log(`[Sent to ${targetId}]: ${messageText}`);
     }
 }

@@ -88,6 +88,9 @@
 
         const API_URL = 'http://localhost:3000/api/v1';
         const WS_URL = 'ws://localhost:3000/api/v1/ws/startchat';
+
+        const EventType = { MESSAGE: 1, SUBSCRIBE: 2, UNSUBSCRIBE: 3 };
+        const EventSource = { SERVER: 1, CLIENT: 2 };
         
         const clients = {
             1: { ws: null, user: null, token: null },
@@ -163,7 +166,14 @@
             };
 
             client.ws.onmessage = (event) => {
-                appendMessage(id, event.data, 'received');
+                try {
+                    const wsEvent = JSON.parse(event.data);
+                    if (wsEvent.event_type === EventType.MESSAGE) {
+                        appendMessage(id, wsEvent.details.payload.message.text, 'received');
+                    }
+                } catch (e) {
+                    console.error("Error parsing message", e);
+                }
             };
 
             client.ws.onclose = () => {
@@ -189,7 +199,17 @@
                 token: ""
             };
 
-            client.ws.send(JSON.stringify(chatMsg));
+            const wsEvent = {
+                event_type: EventType.MESSAGE,
+                src: EventSource.CLIENT,
+                timestamp: new Date().toISOString(),
+                details: {
+                    from: { id: client.user.ID },
+                    payload: chatMsg
+                }
+            };
+
+            client.ws.send(JSON.stringify(wsEvent));
             appendMessage(id, text, 'sent');
             document.getElementById(`msg${id}`).value = '';
         }
