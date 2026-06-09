@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 )
 
@@ -23,7 +24,7 @@ const(
 
 type EventDetails struct{
 	From json.RawMessage `json:"from"`
-	To json.RawMessage `json:"to"`
+	// To json.RawMessage `json:"to"`
 	Payload json.RawMessage `json:"payload"`
 }
 
@@ -42,4 +43,24 @@ func (e *WsEvent) Validate() error {
 		return errors.New("invalid event source")
 	}
 	return nil
+}
+
+func (e *WsEvent) FetchTargetId() (string, error) {
+	if e.EventType == MESSAGE {
+		var chatmessage ChatMessage
+		if err := json.Unmarshal(e.Details.Payload, &chatmessage); err != nil {
+			return "", err
+		}
+		return strconv.Itoa(int(chatmessage.To.Id)), nil
+	}
+
+	if e.EventType == SUBSCRIBE || e.EventType == UNSUBSCRIBE {
+		var targetId int
+		if err := json.Unmarshal(e.Details.Payload, &targetId); err != nil {
+			return "", errors.New("invalid payload for subscription: expected integer user id")
+		}
+		return strconv.Itoa(targetId), nil
+	}
+
+	return "", errors.New("unsupported event type for target identification")
 }

@@ -5,11 +5,7 @@ import (
 	"chatonetoone/internals/ws"
 
 	"encoding/json"
-	"strconv"
-
 	"log"
-
-	"github.com/gorilla/websocket"
 )
 
 type MessagingService struct {
@@ -20,50 +16,57 @@ type MessagingService struct {
 func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
 	msgservice := MessagingService{Connection: con, hub: hub}
 
-	go msgservice.MessageReaderWithContext()
-	go msgservice.MessageWriterWithContext()
+	go msgservice.MessageReader()
+	go msgservice.MessageWriter()
 }
 
-func (ms *MessagingService) MessageReaderWithContext() {
+func (ms *MessagingService) MessageReader() {
+	processor := NewEventProcessor(ms.Connection, ms.hub)
+
 	defer func() {
 		ms.Connection.Conn.Close()
 		ms.hub.DeleteConnection(ms.Connection.ID)
 		close(ms.Connection.Broker)
 	}()
+
 	for {
 		_, rawMessage, err := ms.Connection.Conn.ReadMessage()
 		if err != nil {
 			log.Println("error while reading the data from connection for id:", ms.Connection.ID, err)
 			return
 		}
-		chatmsg := models.ChatMessage{}
-		json.Unmarshal(rawMessage, &chatmsg)
-		id := strconv.Itoa(int(chatmsg.To.Id))
-		TargetCon, errInFetch := ms.hub.FetchConnection(ws.Identifier(id))
-		msgInTxt := chatmsg.Message.Text
-		if errInFetch == nil {
-			
-			TargetCon.Broker <- msgInTxt
-		}else{
-			log.Println("sending push message here..")
-			log.Println("this is you message", msgInTxt)
+
+		wse := models.WsEvent{}
+		if err := json.Unmarshal(rawMessage, &wse); err != nil {
+			log.Println("error unmarshaling event from id:", ms.Connection.ID, err)
+			continue
 		}
+
+		processor.Process(wse)
 	}
 }
 
-func (ms *MessagingService) MessageWriterWithContext() {
+func (ms *MessagingService) MessageWriter() {
 	defer func() {
 		ms.hub.DeleteConnection(ms.Connection.ID)
 		ms.Connection.Conn.Close()
 	}()
+
 	for {
 		msg, ok := <-ms.Connection.Broker
 		if !ok {
-			log.Println("channel close in id:", ms.Connection.ID)
+			log.Println("channel closed for id:", ms.Connection.ID)
 			return
 		}
-		if err := ms.Connection.Conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-			log.Println("err in sending msg: ", err, "id: ", ms.Connection.ID)
+
+		message, err := json.Marshal(msg)
+		if err != nil {
+			log.Println("error encoding message for id:", ms.Connection.ID, err)
+			continue
+		}
+
+		if err := ms.Connection.Conn.WriteMessage(1, message); err != nil {
+			log.Println("error sending message to id:", ms.Connection.ID, err)
 			return
 		}
 	}
