@@ -16,7 +16,7 @@ type MessagingService struct {
 }
 
 func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub, ep *services.EventProcessor) {
-	msgservice := MessagingService{Connection: con, hub: hub}
+	msgservice := MessagingService{Connection: con, hub: hub, eventprocessor: ep}
 
 	go msgservice.MessageReader()
 	go msgservice.MessageWriter()

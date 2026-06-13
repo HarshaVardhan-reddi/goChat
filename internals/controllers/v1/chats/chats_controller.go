@@ -4,6 +4,7 @@ import (
 	"chatonetoone/internals/helpers"
 	"chatonetoone/internals/models"
 	user_repos "chatonetoone/internals/repositories/users_repos"
+	"chatonetoone/internals/services"
 	"chatonetoone/internals/services/chats"
 	"chatonetoone/internals/services/users"
 	"chatonetoone/internals/ws"
@@ -51,5 +52,7 @@ func (cc *ChatsController) InitiateChat(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	chats.StartNewMessagingService(conn, ws.ChatHub)
+	ep := services.NewEventProcessor(conn, ws.ChatHub)
+
+	chats.StartNewMessagingService(conn, ws.ChatHub, ep)
 }
