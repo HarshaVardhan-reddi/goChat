@@ -21,6 +21,22 @@ const (
 	UNSUBSCRIBE
 )
 
+// Message is the interface for all payloads (Chat, Status, etc.)
+type Message interface {
+	GetFromID() int64
+	GetToID() int64
+}
+
+// StatusMessage implements the Message interface
+type StatusMessage struct {
+	UserID   int64     `json:"user_id"`
+	Status   string    `json:"status"`
+	LastSeen time.Time `json:"last_seen"`
+}
+
+func (s StatusMessage) GetFromID() int64 { return s.UserID }
+func (s StatusMessage) GetToID() int64   { return 0 } // Subscriptions are often broadcast or logic-specific
+
 type EventDetails struct {
 	From    json.RawMessage `json:"from"`
 	Payload json.RawMessage `json:"payload"`
@@ -43,21 +59,40 @@ func (e *WsEvent) Validate() error {
 	return nil
 }
 
-func (e *WsEvent) FetchTargetId() (string, error) {
-	if e.EventType == MESSAGE {
-		var chatmessage ChatMessage
-		if err := json.Unmarshal(e.Details.Payload, &chatmessage); err != nil {
-			return "", err
+// GetMessage unmarshals the raw payload into the correct concrete type
+func (e *WsEvent) GetMessage() (Message, error) {
+	switch e.EventType {
+	case MESSAGE:
+		var m ChatMessage
+		err := json.Unmarshal(e.Details.Payload, &m)
+		return m, err
+	case SUBSCRIBE, UNSUBSCRIBE:
+		// Try parsing as integer first (client style)
+		var targetId int64
+		if err := json.Unmarshal(e.Details.Payload, &targetId); err == nil {
+			return StatusMessage{UserID: targetId}, nil
 		}
-		return strconv.Itoa(int(chatmessage.To.Id)), nil
+		// Fallback to StatusMessage struct (server style)
+		var m StatusMessage
+		err := json.Unmarshal(e.Details.Payload, &m)
+		return m, err
+	default:
+		return nil, errors.New("unknown event type")
+	}
+}
+
+func (e *WsEvent) FetchTargetId() (string, error) {
+	msg, err := e.GetMessage()
+	if err != nil {
+		return "", err
+	}
+
+	if e.EventType == MESSAGE {
+		return strconv.FormatInt(msg.GetToID(), 10), nil
 	}
 
 	if e.EventType == SUBSCRIBE || e.EventType == UNSUBSCRIBE {
-		var targetId int
-		if err := json.Unmarshal(e.Details.Payload, &targetId); err != nil {
-			return "", errors.New("invalid payload for subscription: expected integer user id")
-		}
-		return strconv.Itoa(targetId), nil
+		return strconv.FormatInt(msg.GetFromID(), 10), nil
 	}
 
 	return "", errors.New("unsupported event type for target identification")

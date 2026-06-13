@@ -33,3 +33,6 @@ type ChatMessage struct{
 	Message MessageContent `json:"message"`
 	Token ChatToken `json:"token"`
 }
+
+func (m ChatMessage) GetFromID() int64 { return m.From.Id }
+func (m ChatMessage) GetToID() int64   { return m.To.Id }
