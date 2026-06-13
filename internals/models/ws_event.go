@@ -20,6 +20,21 @@ type WsEvent struct {
 	Timestamp time.Time          `json:"timestamp"`
 }
 
+func NewWsEvent(fromId int, toId int, s events.EventSource, d json.RawMessage) (*WsEvent, error) {
+	ed := EventDetails{}
+	if err := json.Unmarshal(d,&ed); err != nil{
+		return nil, err
+	}
+
+	return &WsEvent{
+		From: events.UserRef{Id: int64(fromId)},
+		To: events.UserRef{Id: int64(toId)},
+		Source: s,
+		Details: ed,
+		Timestamp: time.Now(),
+	}, nil
+}
+
 func (ed *EventDetails) UnmarshalJSON(data []byte) error {
 	var temp struct {
 		Type    events.EventType `json:"type"`
