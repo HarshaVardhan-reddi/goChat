@@ -64,7 +64,7 @@ func(rc *RedisConnection) Subscribe(channel string) (<-chan int, error) {
 	return listner,nil
 }
 
-func(rc *RedisConnection) Publish(channel string, msg string){
+func(rc *RedisConnection) Publish(channel string, msg int){
 	rc.Client.Publish(ctx, channel, msg)
 }
 

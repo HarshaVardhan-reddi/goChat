@@ -2,6 +2,7 @@ package chats
 
 import (
 	"chatonetoone/internals/models"
+	"chatonetoone/internals/models/events"
 	"chatonetoone/internals/services"
 	"chatonetoone/internals/ws"
 
@@ -13,10 +14,11 @@ type MessagingService struct {
 	Connection *ws.WsConnection
 	hub        *ws.Hub
 	eventprocessor *services.EventProcessor
+	redis *services.RedisConnection
 }
 
-func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub, ep *services.EventProcessor) {
-	msgservice := MessagingService{Connection: con, hub: hub, eventprocessor: ep}
+func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub, ep *services.EventProcessor, r *services.RedisConnection) {
+	msgservice := MessagingService{Connection: con, hub: hub, eventprocessor: ep, redis: r}
 
 	go msgservice.MessageReader()
 	go msgservice.MessageWriter()
@@ -24,10 +26,14 @@ func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub, ep *services.Ev
 
 func (ms *MessagingService) MessageReader() {
 
+	channel := "status:"+string(ms.Connection.ID)
+	ms.redis.Publish(channel, events.ACTIVE)
+
 	defer func() {
 		ms.Connection.Conn.Close()
 		ms.hub.DeleteConnection(ms.Connection.ID)
 		close(ms.Connection.Broker)
+		ms.redis.Publish(channel, events.INACTIVE)
 	}()
 
 	for {

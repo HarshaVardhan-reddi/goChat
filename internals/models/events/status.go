@@ -5,10 +5,20 @@ import (
 	"time"
 )
 
+type Status int
+const(
+	INACTIVE = iota + 0
+	ACTIVE
+)
+
 type StatusMessage struct {
 	UserID   int64     `json:"user_id"`
-	Status   string    `json:"status"`
+	Status   Status    `json:"status"`
 	LastSeen time.Time `json:"last_seen"`
+}
+
+func NewEvent(uid int64, ls time.Time, s Status) StatusMessage {
+	return  StatusMessage{UserID: uid, LastSeen: ls, Status: s}
 }
 
 func (m StatusMessage) GetFromID() int64 { return m.UserID }

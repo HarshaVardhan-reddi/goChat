@@ -54,5 +54,5 @@ func (cc *ChatsController) InitiateChat(w http.ResponseWriter, r *http.Request){
 
 	ep := services.NewEventProcessor(conn, ws.ChatHub)
 
-	chats.StartNewMessagingService(conn, ws.ChatHub, ep)
+	chats.StartNewMessagingService(conn, ws.ChatHub, ep, services.FetchRedisConnection())
 }

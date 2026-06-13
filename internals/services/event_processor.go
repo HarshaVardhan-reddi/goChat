@@ -73,15 +73,10 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 				return
 			}
 
-			statusStr := "offline"
-			if status == 1 {
-				statusStr = "online"
-			}
-
 			// Using the NEW polymorphic structure from the events package
 			statusPayload := events.StatusMessage{
 				UserID:   event.Details.Message.GetToID(),
-				Status:   statusStr,
+				Status:   events.Status(status),
 				LastSeen: time.Now(),
 			}
 
