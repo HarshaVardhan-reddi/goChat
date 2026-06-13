@@ -7,32 +7,30 @@ import (
 	"time"
 )
 
-
 type EventType int
 type EventSource int
 
-const(
+const (
 	SERVER EventSource = iota + 1
 	CLIENT
 )
 
-const(
+const (
 	MESSAGE EventType = iota + 1
 	SUBSCRIBE
 	UNSUBSCRIBE
 )
 
-type EventDetails struct{
-	From json.RawMessage `json:"from"`
-	// To json.RawMessage `json:"to"`
+type EventDetails struct {
+	From    json.RawMessage `json:"from"`
 	Payload json.RawMessage `json:"payload"`
 }
 
-type WsEvent struct{
-	EventType EventType `json:"event_type"`
-	Details EventDetails `json:"details"`
-	Source EventSource `json:"src"`
-	Timestamp time.Time `json:"timestamp"`
+type WsEvent struct {
+	EventType EventType    `json:"event_type"`
+	Details   EventDetails `json:"details"`
+	Source    EventSource  `json:"src"`
+	Timestamp time.Time    `json:"timestamp"`
 }
 
 func (e *WsEvent) Validate() error {
@@ -63,4 +61,25 @@ func (e *WsEvent) FetchTargetId() (string, error) {
 	}
 
 	return "", errors.New("unsupported event type for target identification")
+}
+
+// NewWsEvent constructs a WsEvent with the given parameters.
+// The payload must be a pre-marshaled json.RawMessage.
+func NewWsEvent(eType EventType, src EventSource, fromID int64, payload json.RawMessage) WsEvent {
+	fromJSON, _ := json.Marshal(map[string]int64{"id": fromID})
+
+	return WsEvent{
+		EventType: eType,
+		Source:    src,
+		Timestamp: time.Now(),
+		Details: EventDetails{
+			From:    fromJSON,
+			Payload: payload,
+		},
+	}
+}
+
+// Marshal converts the WsEvent into a json.RawMessage.
+func (e *WsEvent) Marshal() (json.RawMessage, error) {
+	return json.Marshal(e)
 }

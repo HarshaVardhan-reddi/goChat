@@ -2,6 +2,7 @@ package chats
 
 import (
 	"chatonetoone/internals/models"
+	"chatonetoone/internals/services"
 	"chatonetoone/internals/ws"
 
 	"encoding/json"
@@ -11,9 +12,10 @@ import (
 type MessagingService struct {
 	Connection *ws.WsConnection
 	hub        *ws.Hub
+	eventprocessor *services.EventProcessor
 }
 
-func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
+func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub, ep *services.EventProcessor) {
 	msgservice := MessagingService{Connection: con, hub: hub}
 
 	go msgservice.MessageReader()
@@ -21,7 +23,6 @@ func StartNewMessagingService(con *ws.WsConnection, hub *ws.Hub) {
 }
 
 func (ms *MessagingService) MessageReader() {
-	processor := NewEventProcessor(ms.Connection, ms.hub)
 
 	defer func() {
 		ms.Connection.Conn.Close()
@@ -42,7 +43,7 @@ func (ms *MessagingService) MessageReader() {
 			continue
 		}
 
-		processor.Process(wse)
+		ms.eventprocessor.Process(wse)
 	}
 }
 
@@ -59,7 +60,7 @@ func (ms *MessagingService) MessageWriter() {
 			return
 		}
 
-		message, err := json.Marshal(msg)
+		message, err := msg.Marshal()
 		if err != nil {
 			log.Println("error encoding message for id:", ms.Connection.ID, err)
 			continue
