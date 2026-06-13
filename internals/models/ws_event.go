@@ -3,11 +3,18 @@ package models
 import (
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 )
 
 type EventType int
+
+const (
+	MESSAGE EventType = iota + 1
+	SUBSCRIBE
+	UNSUBSCRIBE
+	STATUS_UPDATE
+)
+
 type EventSource int
 
 const (
@@ -15,106 +22,123 @@ const (
 	CLIENT
 )
 
-const (
-	MESSAGE EventType = iota + 1
-	SUBSCRIBE
-	UNSUBSCRIBE
-)
-
-// Message is the interface for all payloads (Chat, Status, etc.)
+// Message is the interface for all event payloads
 type Message interface {
 	GetFromID() int64
 	GetToID() int64
 }
 
-// StatusMessage implements the Message interface
+// --- Concrete Message Types ---
+
 type StatusMessage struct {
 	UserID   int64     `json:"user_id"`
 	Status   string    `json:"status"`
 	LastSeen time.Time `json:"last_seen"`
 }
 
-func (s StatusMessage) GetFromID() int64 { return s.UserID }
-func (s StatusMessage) GetToID() int64   { return 0 } // Subscriptions are often broadcast or logic-specific
+func (m StatusMessage) GetFromID() int64 { return m.UserID }
+func (m StatusMessage) GetToID() int64   { return 0 }
+
+type SubscribeMessage struct {
+	TargetID int64 `json:"target_id"`
+}
+
+func (m SubscribeMessage) GetFromID() int64 { return 0 }
+func (m SubscribeMessage) GetToID() int64   { return m.TargetID }
+
+type UnsubscribeMessage struct {
+	TargetID int64 `json:"target_id"`
+}
+
+func (m UnsubscribeMessage) GetFromID() int64 { return 0 }
+func (m UnsubscribeMessage) GetToID() int64   { return m.TargetID }
+
+// --- WsEvent Structure ---
 
 type EventDetails struct {
-	From    json.RawMessage `json:"from"`
-	Payload json.RawMessage `json:"payload"`
+	Type    EventType `json:"type"`
+	Message Message   `json:"message"`
 }
 
 type WsEvent struct {
-	EventType EventType    `json:"event_type"`
-	Details   EventDetails `json:"details"`
+	From      UserRef      `json:"from"`
+	To        UserRef      `json:"to"`
 	Source    EventSource  `json:"src"`
+	Details   EventDetails `json:"details"`
 	Timestamp time.Time    `json:"timestamp"`
 }
 
+// Custom Unmarshaler for EventDetails to handle the Message interface polymorphism
+func (ed *EventDetails) UnmarshalJSON(data []byte) error {
+	type Alias EventDetails
+	aux := &struct {
+		RawMessage json.RawMessage `json:"message"`
+		*Alias
+	}{
+		Alias: (*Alias)(ed),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	switch ed.Type {
+	case MESSAGE:
+		var m ChatMessage
+		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
+			return err
+		}
+		ed.Message = m
+	case SUBSCRIBE:
+		var m SubscribeMessage
+		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
+			// Fallback: Client might just send the ID as an integer
+			var targetId int64
+			if err2 := json.Unmarshal(aux.RawMessage, &targetId); err2 == nil {
+				ed.Message = SubscribeMessage{TargetID: targetId}
+				return nil
+			}
+			return err
+		}
+		ed.Message = m
+	case UNSUBSCRIBE:
+		var m UnsubscribeMessage
+		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
+			var targetId int64
+			if err2 := json.Unmarshal(aux.RawMessage, &targetId); err2 == nil {
+				ed.Message = UnsubscribeMessage{TargetID: targetId}
+				return nil
+			}
+			return err
+		}
+		ed.Message = m
+	case STATUS_UPDATE:
+		var m StatusMessage
+		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
+			return err
+		}
+		ed.Message = m
+	default:
+		return errors.New("unsupported event type during unmarshaling")
+	}
+	return nil
+}
+
+// Validate ensures the event has a recognized type and source
 func (e *WsEvent) Validate() error {
-	if e.EventType < MESSAGE || e.EventType > UNSUBSCRIBE {
+	if e.Details.Type < MESSAGE || e.Details.Type > STATUS_UPDATE {
 		return errors.New("invalid event type")
 	}
 	if e.Source < SERVER || e.Source > CLIENT {
 		return errors.New("invalid event source")
 	}
+	if e.Details.Message == nil {
+		return errors.New("missing event message payload")
+	}
 	return nil
 }
 
-// GetMessage unmarshals the raw payload into the correct concrete type
-func (e *WsEvent) GetMessage() (Message, error) {
-	switch e.EventType {
-	case MESSAGE:
-		var m ChatMessage
-		err := json.Unmarshal(e.Details.Payload, &m)
-		return m, err
-	case SUBSCRIBE, UNSUBSCRIBE:
-		// Try parsing as integer first (client style)
-		var targetId int64
-		if err := json.Unmarshal(e.Details.Payload, &targetId); err == nil {
-			return StatusMessage{UserID: targetId}, nil
-		}
-		// Fallback to StatusMessage struct (server style)
-		var m StatusMessage
-		err := json.Unmarshal(e.Details.Payload, &m)
-		return m, err
-	default:
-		return nil, errors.New("unknown event type")
-	}
-}
-
-func (e *WsEvent) FetchTargetId() (string, error) {
-	msg, err := e.GetMessage()
-	if err != nil {
-		return "", err
-	}
-
-	if e.EventType == MESSAGE {
-		return strconv.FormatInt(msg.GetToID(), 10), nil
-	}
-
-	if e.EventType == SUBSCRIBE || e.EventType == UNSUBSCRIBE {
-		return strconv.FormatInt(msg.GetFromID(), 10), nil
-	}
-
-	return "", errors.New("unsupported event type for target identification")
-}
-
-// NewWsEvent constructs a WsEvent with the given parameters.
-// The payload must be a pre-marshaled json.RawMessage.
-func NewWsEvent(eType EventType, src EventSource, fromID int64, payload json.RawMessage) WsEvent {
-	fromJSON, _ := json.Marshal(map[string]int64{"id": fromID})
-
-	return WsEvent{
-		EventType: eType,
-		Source:    src,
-		Timestamp: time.Now(),
-		Details: EventDetails{
-			From:    fromJSON,
-			Payload: payload,
-		},
-	}
-}
-
-// Marshal converts the WsEvent into a json.RawMessage.
-func (e *WsEvent) Marshal() (json.RawMessage, error) {
+// Marshal converts the WsEvent into a JSON representation
+func (e *WsEvent) Marshal() ([]byte, error) {
 	return json.Marshal(e)
 }

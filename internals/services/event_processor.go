@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -32,52 +33,40 @@ func NewEventProcessor(con *ws.WsConnection, hub *ws.Hub) *EventProcessor {
 	return ep
 }
 
-// Process is the main entry point
 func (ep *EventProcessor) Process(event models.WsEvent) {
 	if err := event.Validate(); err != nil {
-		log.Println("Event validation failed for user", ep.con.ID, ":", err)
+		log.Println("Event validation failed:", err)
 		return
 	}
 
-	if handler, ok := ep.handlers[event.EventType]; ok {
+	if handler, ok := ep.handlers[event.Details.Type]; ok {
 		handler(event)
 	} else {
-		log.Printf("No handler registered for event type %d from user %s\n", event.EventType, ep.con.ID)
+		log.Printf("No handler registered for type %d\n", event.Details.Type)
 	}
 }
 
 func (ep *EventProcessor) handleChatMessage(event models.WsEvent) {
-	targetId, err := event.FetchTargetId()
-	if err != nil {
-		log.Println("Error fetching target ID for message from", ep.con.ID, ":", err)
-		return
-	}
-
+	targetId := strconv.FormatInt(event.To.Id, 10)
 	targetCon, err := ep.hub.FetchConnection(ws.Identifier(targetId))
 	if err == nil {
 		targetCon.Broker <- event
 	} else {
-		log.Printf("User %s is offline. Event should be saved to DB.\n", targetId)
+		log.Printf("User %s is offline.\n", targetId)
 	}
 }
 
 func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
-	targetId, err := event.FetchTargetId()
-	if err != nil {
-		log.Println("Error fetching target ID for subscription from", ep.con.ID, ":", err)
-		return
-	}
+	targetId := strconv.FormatInt(event.Details.Message.GetToID(), 10)
 
 	redis := FetchRedisConnection()
 	listener, err := redis.Subscribe(targetId)
 	if err != nil {
-		log.Println("error in subscribing to targetId: ", targetId, " - SourceId", ep.con.ID, err)
+		log.Println("Redis subscription error:", err)
 		return
 	}
 
-	// Run in background to avoid blocking the main MessageReader loop
 	go func() {
-		fmt.Printf("User %s started watching status of %s\n", ep.con.ID, targetId)
 		for {
 			status, ok := <-listener
 			if !ok || status == -1 {
@@ -85,31 +74,34 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 			}
 
 			statusStr := "offline"
-			if status == 1 { // Assuming 1 is online, adjust based on your redis logic
+			if status == 1 {
 				statusStr = "online"
 			}
 
+			// Using the NEW polymorphic structure
 			statusPayload := models.StatusMessage{
-				UserID:   0,
+				UserID:   event.Details.Message.GetToID(),
 				Status:   statusStr,
 				LastSeen: time.Now(),
 			}
 
-			rawPayload, _ := json.Marshal(statusPayload)
+			resp := models.WsEvent{
+				From:   models.UserRef{Id: event.Details.Message.GetToID()},
+				To:     models.UserRef{Id: event.From.Id},
+				Source: models.SERVER,
+				Details: models.EventDetails{
+					Type:    models.STATUS_UPDATE,
+					Message: statusPayload,
+				},
+				Timestamp: time.Now(),
+			}
 			
-			// Wrap it in a WsEvent and send back to the subscriber
-			resp := models.NewWsEvent(models.SUBSCRIBE, models.SERVER, 0, rawPayload)
 			ep.con.Broker <- resp
 		}
 	}()
 }
 
 func (ep *EventProcessor) handleUnsubscribe(event models.WsEvent) {
-	targetId, err := event.FetchTargetId()
-	if err != nil {
-		log.Println("Error fetching target ID for unsubscription from", ep.con.ID, ":", err)
-		return
-	}
-
-	fmt.Printf("User %s unsubscribed from status of %s\n", ep.con.ID, targetId)
+	targetId := event.Details.Message.GetToID()
+	fmt.Printf("User %d unsubscribed from %d\n", event.From.Id, targetId)
 }
