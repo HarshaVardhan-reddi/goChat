@@ -60,7 +60,7 @@ func (ms *MessagingService) MessageWriter() {
 			return
 		}
 
-		message, err := msg.Marshal()
+		message, err := msg.ToJSON()
 		if err != nil {
 			log.Println("error encoding message for id:", ms.Connection.ID, err)
 			continue

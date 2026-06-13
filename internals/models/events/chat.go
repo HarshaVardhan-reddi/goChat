@@ -1,5 +1,7 @@
 package events
 
+import "encoding/json"
+
 type Attachment struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`
@@ -23,3 +25,11 @@ type ChatMessage struct {
 
 func (m ChatMessage) GetFromID() int64 { return m.From.Id }
 func (m ChatMessage) GetToID() int64   { return m.To.Id }
+
+func (m ChatMessage) ToJSON() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+func (m *ChatMessage) FromJSON(data []byte) error {
+	return json.Unmarshal(data, m)
+}

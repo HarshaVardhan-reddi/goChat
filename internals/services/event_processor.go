@@ -16,19 +16,19 @@ type EventHandler func(event models.WsEvent)
 type EventProcessor struct {
 	con      *ws.WsConnection
 	hub      *ws.Hub
-	handlers map[models.EventType]EventHandler
+	handlers map[events.EventType]EventHandler
 }
 
 func NewEventProcessor(con *ws.WsConnection, hub *ws.Hub) *EventProcessor {
 	ep := &EventProcessor{
 		con:      con,
 		hub:      hub,
-		handlers: make(map[models.EventType]EventHandler),
+		handlers: make(map[events.EventType]EventHandler),
 	}
 
-	ep.handlers[models.MESSAGE] = ep.handleChatMessage
-	ep.handlers[models.SUBSCRIBE] = ep.handleSubscribe
-	ep.handlers[models.UNSUBSCRIBE] = ep.handleUnsubscribe
+	ep.handlers[events.MESSAGE] = ep.handleChatMessage
+	ep.handlers[events.SUBSCRIBE] = ep.handleSubscribe
+	ep.handlers[events.UNSUBSCRIBE] = ep.handleUnsubscribe
 
 	return ep
 }
@@ -88,10 +88,10 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 			resp := models.WsEvent{
 				From:   events.UserRef{Id: event.Details.Message.GetToID()},
 				To:     events.UserRef{Id: event.From.Id},
-				Source: models.SERVER,
+				Source: events.SERVER,
 				Details: models.EventDetails{
-					Type:    models.STATUS_UPDATE,
-					Message: statusPayload,
+					Type:    events.STATUS_UPDATE,
+					Message: &statusPayload,
 				},
 				Timestamp: time.Now(),
 			}
