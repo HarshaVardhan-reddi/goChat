@@ -1,6 +1,7 @@
 package models
 
 import (
+	"chatonetoone/internals/models/events"
 	"encoding/json"
 	"errors"
 	"time"
@@ -22,50 +23,19 @@ const (
 	CLIENT
 )
 
-// Message is the interface for all event payloads
-type Message interface {
-	GetFromID() int64
-	GetToID() int64
-}
-
-// --- Concrete Message Types ---
-
-type StatusMessage struct {
-	UserID   int64     `json:"user_id"`
-	Status   string    `json:"status"`
-	LastSeen time.Time `json:"last_seen"`
-}
-
-func (m StatusMessage) GetFromID() int64 { return m.UserID }
-func (m StatusMessage) GetToID() int64   { return 0 }
-
-type SubscribeMessage struct {
-	TargetID int64 `json:"target_id"`
-}
-
-func (m SubscribeMessage) GetFromID() int64 { return 0 }
-func (m SubscribeMessage) GetToID() int64   { return m.TargetID }
-
-type UnsubscribeMessage struct {
-	TargetID int64 `json:"target_id"`
-}
-
-func (m UnsubscribeMessage) GetFromID() int64 { return 0 }
-func (m UnsubscribeMessage) GetToID() int64   { return m.TargetID }
-
 // --- WsEvent Structure ---
 
 type EventDetails struct {
-	Type    EventType `json:"type"`
-	Message Message   `json:"message"`
+	Type    EventType      `json:"type"`
+	Message events.Message `json:"message"`
 }
 
 type WsEvent struct {
-	From      UserRef      `json:"from"`
-	To        UserRef      `json:"to"`
-	Source    EventSource  `json:"src"`
-	Details   EventDetails `json:"details"`
-	Timestamp time.Time    `json:"timestamp"`
+	From      events.UserRef `json:"from"`
+	To        events.UserRef `json:"to"`
+	Source    EventSource    `json:"src"`
+	Details   EventDetails   `json:"details"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 // Custom Unmarshaler for EventDetails to handle the Message interface polymorphism
@@ -84,36 +54,36 @@ func (ed *EventDetails) UnmarshalJSON(data []byte) error {
 
 	switch ed.Type {
 	case MESSAGE:
-		var m ChatMessage
+		var m events.ChatMessage
 		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
 			return err
 		}
 		ed.Message = m
 	case SUBSCRIBE:
-		var m SubscribeMessage
+		var m events.SubscribeMessage
 		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
 			// Fallback: Client might just send the ID as an integer
 			var targetId int64
 			if err2 := json.Unmarshal(aux.RawMessage, &targetId); err2 == nil {
-				ed.Message = SubscribeMessage{TargetID: targetId}
+				ed.Message = events.SubscribeMessage{TargetID: targetId}
 				return nil
 			}
 			return err
 		}
 		ed.Message = m
 	case UNSUBSCRIBE:
-		var m UnsubscribeMessage
+		var m events.UnsubscribeMessage
 		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
 			var targetId int64
 			if err2 := json.Unmarshal(aux.RawMessage, &targetId); err2 == nil {
-				ed.Message = UnsubscribeMessage{TargetID: targetId}
+				ed.Message = events.UnsubscribeMessage{TargetID: targetId}
 				return nil
 			}
 			return err
 		}
 		ed.Message = m
 	case STATUS_UPDATE:
-		var m StatusMessage
+		var m events.StatusMessage
 		if err := json.Unmarshal(aux.RawMessage, &m); err != nil {
 			return err
 		}

@@ -2,8 +2,8 @@ package services
 
 import (
 	"chatonetoone/internals/models"
+	"chatonetoone/internals/models/events"
 	"chatonetoone/internals/ws"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -78,16 +78,16 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 				statusStr = "online"
 			}
 
-			// Using the NEW polymorphic structure
-			statusPayload := models.StatusMessage{
+			// Using the NEW polymorphic structure from the events package
+			statusPayload := events.StatusMessage{
 				UserID:   event.Details.Message.GetToID(),
 				Status:   statusStr,
 				LastSeen: time.Now(),
 			}
 
 			resp := models.WsEvent{
-				From:   models.UserRef{Id: event.Details.Message.GetToID()},
-				To:     models.UserRef{Id: event.From.Id},
+				From:   events.UserRef{Id: event.Details.Message.GetToID()},
+				To:     events.UserRef{Id: event.From.Id},
 				Source: models.SERVER,
 				Details: models.EventDetails{
 					Type:    models.STATUS_UPDATE,
