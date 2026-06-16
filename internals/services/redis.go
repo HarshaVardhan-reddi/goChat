@@ -2,10 +2,8 @@ package services
 
 import (
 	"context"
-	"log"
 	"os"
 	"strconv"
-	
 	"sync"
 
 	"github.com/redis/go-redis/v9"
@@ -44,24 +42,26 @@ func FetchRedisConnection() *RedisConnection {
 	return redisCon
 }
 
-func(rc *RedisConnection) Subscribe(channel string) (<-chan int, error) {
+func (rc *RedisConnection) Subscribe(ctx context.Context, channel string) (<-chan int, error) {
 	subs := rc.Client.Subscribe(ctx, channel)
-	listner := make(chan int)
-	go func(){
+	listener := make(chan int)
+	go func() {
+		defer close(listener)
 		defer subs.Close()
-	for{
-		msg, err := subs.ReceiveMessage(ctx)
-		if err != nil{
-			log.Println(err)
-			listner <- -1
-			return
+		for {
+			msg, err := subs.ReceiveMessage(ctx)
+			if err != nil {
+				return
+			}
+			rawStatus := (msg.String())[0]
+			select {
+			case listener <- int(rawStatus):
+			case <-ctx.Done():
+				return
+			}
 		}
-		rawStatus := (msg.String())[0]
-		status := int(rawStatus)
-		listner <- status
-	}
 	}()
-	return listner,nil
+	return listener, nil
 }
 
 func(rc *RedisConnection) Publish(channel string, msg int){

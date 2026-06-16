@@ -30,6 +30,7 @@ func (ms *MessagingService) MessageReader() {
 	ms.redis.Publish(channel, events.ACTIVE)
 
 	defer func() {
+		ms.Connection.Cancel()
 		ms.Connection.Conn.Close()
 		ms.hub.DeleteConnection(ms.Connection.ID)
 		close(ms.Connection.Broker)

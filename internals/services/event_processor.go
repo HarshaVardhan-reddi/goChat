@@ -4,7 +4,6 @@ import (
 	"chatonetoone/internals/models"
 	"chatonetoone/internals/models/events"
 	"chatonetoone/internals/ws"
-	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -60,7 +59,7 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 	targetId := strconv.FormatInt(event.Details.Message.GetToID(), 10)
 
 	redis := FetchRedisConnection()
-	listener, err := redis.Subscribe(targetId)
+	listener, err := redis.Subscribe(ep.con.Ctx, targetId)
 	if err != nil {
 		log.Println("Redis subscription error:", err)
 		return
@@ -68,35 +67,38 @@ func (ep *EventProcessor) handleSubscribe(event models.WsEvent) {
 
 	go func() {
 		for {
-			status, ok := <-listener
-			if !ok || status == -1 {
+			select {
+			case <-ep.con.Ctx.Done():
 				return
+			case status, ok := <-listener:
+				if !ok {
+					return
+				}
+				statusPayload := events.StatusMessage{
+					UserID:   event.Details.Message.GetToID(),
+					Status:   events.Status(status),
+					LastSeen: time.Now(),
+				}
+				resp := models.WsEvent{
+					From:   events.UserRef{Id: event.Details.Message.GetToID()},
+					To:     events.UserRef{Id: event.From.Id},
+					Source: events.SERVER,
+					Details: models.EventDetails{
+						Type:    events.STATUS_UPDATE,
+						Message: &statusPayload,
+					},
+					Timestamp: time.Now(),
+				}
+				select {
+				case ep.con.Broker <- resp:
+				case <-ep.con.Ctx.Done():
+					return
+				}
 			}
-
-			// Using the NEW polymorphic structure from the events package
-			statusPayload := events.StatusMessage{
-				UserID:   event.Details.Message.GetToID(),
-				Status:   events.Status(status),
-				LastSeen: time.Now(),
-			}
-
-			resp := models.WsEvent{
-				From:   events.UserRef{Id: event.Details.Message.GetToID()},
-				To:     events.UserRef{Id: event.From.Id},
-				Source: events.SERVER,
-				Details: models.EventDetails{
-					Type:    events.STATUS_UPDATE,
-					Message: &statusPayload,
-				},
-				Timestamp: time.Now(),
-			}
-			
-			ep.con.Broker <- resp
 		}
 	}()
 }
 
 func (ep *EventProcessor) handleUnsubscribe(event models.WsEvent) {
-	targetId := event.Details.Message.GetToID()
-	fmt.Printf("User %d unsubscribed from %d\n", event.From.Id, targetId)
+	log.Printf("User %d unsubscribed from %d\n", event.From.Id, event.Details.Message.GetToID())
 }
